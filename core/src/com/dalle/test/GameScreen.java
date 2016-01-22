@@ -1,8 +1,10 @@
 package com.dalle.test;
 
+import static com.dalle.test.GeneralVariables.BULLET_MOUVEMENT_SPEED;
+import static com.dalle.test.GeneralVariables.BULLET_RADIUS;
 import static com.dalle.test.GeneralVariables.HEIGHT;
-import static com.dalle.test.GeneralVariables.MOUVEMENT;
-import static com.dalle.test.GeneralVariables.RADIUS;
+import static com.dalle.test.GeneralVariables.PLAYER_MOUVEMENT_SPEED;
+import static com.dalle.test.GeneralVariables.PLAYER_RADIUS;
 import static com.dalle.test.GeneralVariables.TURN_RATE;
 import static com.dalle.test.GeneralVariables.WIDTH;
 
@@ -21,44 +23,42 @@ import com.badlogic.gdx.utils.TimeUtils;
 
 public class GameScreen implements Screen {
 	private final TestGame game;
-	private Texture enemyImage;
-	private Texture playerImage;
+	private Texture enemyTexture;
+	private Texture playerTexture;
+	private Texture bulletTexture;
 	private OrthographicCamera camera;
 	private MovingCircle player;
 	private Array<MovingCircle> enemies;
-	private Pool<MovingCircle> enemyPool;
-	long lastEnemyTime;
-	int enemyKilled;
+	private Array<MovingCircle> bullets;
+	private Pool<MovingCircle> circlePool;
+
+	private long lastEnemyTime;
+	private int enemyKilled;
 
 	public GameScreen(final TestGame game) {
 		this.game = game;
-
-		// load the images for the droplet and the bucket, 64x64 pixels each
-		enemyImage = new Texture(Gdx.files.internal("Enemy.png"));
-		playerImage = new Texture(Gdx.files.internal("Player.png"));
-
-		// create the camera and the SpriteBatch
-		camera = new OrthographicCamera();
-		camera.setToOrtho(false, WIDTH, HEIGHT);
-
-		// create a Rectangle to logically represent the bucket
-		player = new MovingCircle();
-		player.radius = RADIUS;
-		player.x = WIDTH / 2 - RADIUS / 2;
-		player.y = HEIGHT / 2 - RADIUS / 2;
-		player.heading = 0;
-
-		// create the raindrops array and spawn the first raindrop
-		enemies = new Array<MovingCircle>();
-		enemyPool = new Pool<MovingCircle>() {
+		circlePool = new Pool<MovingCircle>() {
 
 			@Override
 			protected MovingCircle newObject() {
 				return new MovingCircle();
 			}
 		};
-		spawnEnemy(3);
-
+		enemyTexture = new Texture(Gdx.files.internal("enemy.png"));
+		playerTexture = new Texture(Gdx.files.internal("player.png"));
+		bulletTexture = new Texture(Gdx.files.internal("bullet.png"));
+		bullets = new Array<MovingCircle>();
+		camera = new OrthographicCamera();
+		camera.setToOrtho(false, WIDTH, HEIGHT);
+		player = new MovingCircle();
+		player.setTexture(playerTexture);
+		float x = WIDTH / 2 - player.getRadius() / 2;
+		float y = HEIGHT / 2 - player.getRadius() / 2;
+		player.setPosition(x, y);
+		player.setSpeed(PLAYER_MOUVEMENT_SPEED);
+		player.setRadius(PLAYER_RADIUS);
+		enemies = new Array<MovingCircle>();
+		spawnEnemy(4);
 	}
 
 	private void spawnEnemy(int nb) {
@@ -68,27 +68,31 @@ public class GameScreen implements Screen {
 	}
 
 	private void spawnEnemy() {
-		final MovingCircle enemy = enemyPool.obtain();
+		final MovingCircle enemy = circlePool.obtain();
+		enemy.setSpeed(PLAYER_MOUVEMENT_SPEED);
+		enemy.setRadius(PLAYER_RADIUS);
+		enemy.setRotation(MathUtils.random(0, 360));
+		enemy.setTexture(enemyTexture);
+		float x = 0;
+		float y = 0;
 		if (MathUtils.randomBoolean()) {
 			if (MathUtils.randomBoolean()) {
-				enemy.x = MathUtils.random(RADIUS, WIDTH - RADIUS);
-				enemy.y = RADIUS;
+				x = MathUtils.random(enemy.getRadius(), WIDTH - enemy.getRadius());
+				y = enemy.getRadius();
 			} else {
-				enemy.x = MathUtils.random(RADIUS, WIDTH - RADIUS);
-				enemy.y = HEIGHT - RADIUS;
+				x = MathUtils.random(enemy.getRadius(), WIDTH - enemy.getRadius());
+				y = HEIGHT - enemy.getRadius();
 			}
 		} else {
 			if (MathUtils.randomBoolean()) {
-				enemy.x = RADIUS;
-				enemy.y = MathUtils.random(RADIUS, HEIGHT - RADIUS);
+				x = enemy.getRadius();
+				y = MathUtils.random(enemy.getRadius(), HEIGHT - enemy.getRadius());
 			} else {
-				enemy.x = WIDTH - RADIUS;
-				enemy.y = MathUtils.random(RADIUS, HEIGHT - RADIUS);
+				x = WIDTH - enemy.getRadius();
+				y = MathUtils.random(enemy.getRadius(), HEIGHT - enemy.getRadius());
 			}
 		}
-		enemy.heading = MathUtils.random(0, 360);
-		enemy.radius = RADIUS;
-		enemies.add(enemy);
+		enemy.setPosition(x, y);
 		lastEnemyTime = TimeUtils.nanoTime();
 	}
 
@@ -100,47 +104,67 @@ public class GameScreen implements Screen {
 		camera.update();
 
 		game.batch.setProjectionMatrix(camera.combined);
-
 		game.batch.begin();
 		game.font.draw(game.batch, "Enemy killed : " + enemyKilled, 0, 480);
-		game.batch.draw(playerImage, player.x, player.y);
-
+		player.draw(game.batch);
 		for (final MovingCircle enemy : enemies) {
-			game.batch.draw(enemyImage, enemy.x, enemy.y);
+			enemy.draw(game.batch);
+		}
+		for (final MovingCircle bullet : bullets) {
+			bullet.draw(game.batch);
 		}
 		game.batch.end();
 
 		if (Gdx.input.isKeyPressed(Keys.LEFT)) {
-			player.changeHeading(TURN_RATE * Gdx.graphics.getDeltaTime());
+			player.changeRotation(TURN_RATE * Gdx.graphics.getDeltaTime());
 		} else if (Gdx.input.isKeyPressed(Keys.RIGHT)) {
-			player.changeHeading(-TURN_RATE * Gdx.graphics.getDeltaTime());
+			player.changeRotation(-TURN_RATE * Gdx.graphics.getDeltaTime());
 		}
 		if (Gdx.input.isKeyPressed(Keys.UP)) {
-			player.move(MOUVEMENT * Gdx.graphics.getDeltaTime());
+			player.moveAhead(Gdx.graphics.getDeltaTime());
 		} else if (Gdx.input.isKeyPressed(Keys.DOWN)) {
-			player.move(-MOUVEMENT * Gdx.graphics.getDeltaTime());
+			player.moveBack(Gdx.graphics.getDeltaTime());
+		}
+		if (Gdx.input.isKeyPressed(Keys.SPACE)) {
+			final MovingCircle bullet = circlePool.obtain();
+			bullet.setTexture(bulletTexture);
+			bullet.setRotation(player.getRotation());
+			bullet.setSpeed(BULLET_MOUVEMENT_SPEED);
+			bullet.setRadius(BULLET_RADIUS);
+			float x = (float) (player.getX() + PLAYER_RADIUS + PLAYER_RADIUS * Math.cos(player.getRotation()));
+			float y = (float) (player.getY() + PLAYER_RADIUS + PLAYER_RADIUS * Math.sin(player.getRotation()));
+			bullet.setPosition(x, y);
 		}
 
 		if (TimeUtils.nanoTime() - lastEnemyTime > 100000000 && enemies.size < 10) {
 			spawnEnemy();
 		}
 
-		Iterator<MovingCircle> iter = enemies.iterator();
-		while (iter.hasNext()) {
-			final MovingCircle enemy = iter.next();
-			enemy.move();
+		final Iterator<MovingCircle> enemiesIt = enemies.iterator();
+		while (enemiesIt.hasNext()) {
+			final MovingCircle enemy = enemiesIt.next();
+			enemy.moveAhead(Gdx.graphics.getDeltaTime());
 			if (enemy.isTouchingBoard()) {
 				enemy.backRandomHeading();
 			}
 			if (enemy.overlaps(player)) {
 				enemyKilled++;
-				iter.remove();
+				enemiesIt.remove();
+			}
+		}
+		final Iterator<MovingCircle> bulletsIt = bullets.iterator();
+		while (bulletsIt.hasNext()) {
+			final MovingCircle bullet = bulletsIt.next();
+			bullet.moveAhead(Gdx.graphics.getDeltaTime());
+			if (bullet.isTouchingBoard()) {
+				bulletsIt.remove();
 			}
 		}
 	}
 
 	@Override
 	public void resize(int width, int height) {
+
 	}
 
 	@Override
@@ -162,8 +186,9 @@ public class GameScreen implements Screen {
 
 	@Override
 	public void dispose() {
-		enemyImage.dispose();
-		playerImage.dispose();
+		enemyTexture.dispose();
+		playerTexture.dispose();
+		bulletTexture.dispose();
 	}
 
 }
