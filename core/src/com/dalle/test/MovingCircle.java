@@ -13,8 +13,8 @@ public class MovingCircle extends Sprite implements Poolable {
 	private float radius;
 	private float speed;
 
-	public MovingCircle() {
-		super();
+	public MovingCircle(final Texture texture) {
+		super(texture);
 		this.radius = 0;
 		this.speed = 0;
 	}
@@ -54,15 +54,16 @@ public class MovingCircle extends Sprite implements Poolable {
 	}
 
 	public void changeRotation(float headingDelta) {
-		setRotation(getRotation() + headingDelta);
-		while (getRotation() <= 0 || getRotation() > 360) {
-			if (getRotation() <= 0) {
-				setRotation(getRotation() + 360);
+		float rotation = headingDelta;
+		while (rotation <= 0 || rotation > 360) {
+			if (rotation <= 0) {
+				rotation += 360;
 			}
-			if (getRotation() > 360) {
-				setRotation(getRotation() - 360);
+			if (rotation > 360) {
+				rotation -= 360;
 			}
 		}
+		setRotation(rotation);
 	}
 
 	public float getRadiansRotation() {
@@ -74,11 +75,33 @@ public class MovingCircle extends Sprite implements Poolable {
 	}
 
 	public void backRandomHeading() {
-		changeRotation(MathUtils.random((float) Math.PI / 2, (float) (3 * Math.PI) / 2));
+		changeRotation(getRotation() + MathUtils.random((float) Math.PI / 2, (float) (3 * Math.PI) / 2) * MathUtils.radiansToDegrees);
+	}
+
+	public void reflectHeading() {
+		System.out.println("inc = " + getRotation() + ", x=" + getX() + ", y=" + getY());
+		changeRotation(-getRotation() + 90);
+		System.out.println("next = " + getRotation());
 	}
 
 	public boolean isTouchingBoard() {
 		return getX() <= 0 || getX() + getRadius() * 2 >= WIDTH || getY() <= 0 || getY() + getRadius() * 2 >= HEIGHT;
+	}
+
+	public float getBaseOfTouchingBoard() {
+		if (getX() <= 0) {
+			return 180;
+		}
+		if (getX() + getRadius() * 2 >= WIDTH) {
+			return 0;
+		}
+		if (getY() <= 0) {
+			return 270;
+		}
+		if (getY() + getRadius() * 2 >= HEIGHT) {
+			return 90;
+		}
+		return 0;
 	}
 
 	public float getRadius() {

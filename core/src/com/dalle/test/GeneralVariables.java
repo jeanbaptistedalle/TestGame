@@ -7,5 +7,5 @@ public class GeneralVariables {
 	public static final Float BULLET_RADIUS = 1f;
 	public static final Float PLAYER_MOUVEMENT_SPEED = 300f;
 	public static final Float BULLET_MOUVEMENT_SPEED = 800f;
-	public static final Float TURN_RATE = 5f;
+	public static final Float TURN_RATE = 400f;
 }
